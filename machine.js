@@ -1,4 +1,4 @@
-import readline from "readline";
+import readline from "readline/promises";
 class Machine {
   state = {
     characters: ["A", "B", "C", "D", "E"],
@@ -86,20 +86,20 @@ class Machine {
     } else if (this.isDouble(slots)) {
       this.giveWinnings(this.state.double);
       return;
+    } else {
+      this.state.currentGame.winnings = 0;
+      this.state.currentGame.freePlays = 0;
+      return;
     }
   }
 
-  askQuestion(question) {
+  async askQuestion(question) {
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
-    const response = new Promise((resolve) => {
-      rl.question(question, (answer) => {
-        rl.close();
-        resolve(answer);
-      });
-    });
+    const response = await rl.question(question);
+    rl.close();
     return response;
   }
 

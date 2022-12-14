@@ -1,10 +1,22 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import Machine from "./machine";
+import readline from "readline/promises";
+
+const mockQuestion = vi.fn();
+const mockClose = vi.fn();
 
 describe("machine", () => {
   let slotMachine;
+  let readlineMock;
   beforeEach(() => {
+    vi.restoreAllMocks();
     slotMachine = new Machine();
+    console.log = vi.fn();
+
+    readlineMock = vi.spyOn(readline, "createInterface").mockReturnValue({
+      question: mockQuestion,
+      close: mockClose,
+    });
   });
 
   describe("#isJackpot", () => {
@@ -36,6 +48,9 @@ describe("machine", () => {
         ["A", "A", "B", "C"],
         ["A", "B", "B", "C"],
         ["A", "B", "C", "C"],
+        ["B", "A", "A", "A"],
+        ["A", "A", "A", "B"],
+        ["A", "B", "B", "A"],
       ];
       slotsArr.forEach((slots) => {
         expect(slotMachine.isDouble(slots)).toBe(true);
@@ -131,13 +146,102 @@ describe("machine", () => {
       expect(slotMachine.state.currentGame.winnings).toBe(1);
     });
     it("pays the all different", () => {
+      const slotsArr = [
+        ["D", "C", "E", "B"],
+        ["A", "B", "C", "D"],
+      ];
+      slotsArr.forEach((slots) => {
+        slotMachine.state.playerCash = 0;
+        slotMachine.state.prizePot = 20;
+        slotMachine.getResult(slots);
+        expect(slotMachine.state.playerCash).toBe(10);
+        expect(slotMachine.state.prizePot).toBe(10);
+        expect(slotMachine.state.currentGame.winnings).toBe(10);
+      });
+    });
+    it("pays nothing", () => {
       slotMachine.state.playerCash = 0;
       slotMachine.state.prizePot = 20;
-      const slots = ["A", "B", "C", "D"];
+      const slots = ["A", "B", "A", "B"];
       slotMachine.getResult(slots);
-      expect(slotMachine.state.playerCash).toBe(10);
-      expect(slotMachine.state.prizePot).toBe(10);
+      expect(slotMachine.state.playerCash).toBe(0);
+      expect(slotMachine.state.prizePot).toBe(20);
+      expect(slotMachine.state.currentGame.winnings).toBe(0);
+    });
+  });
+
+  describe("#askQuestion", () => {
+    it("asks the user a question", async () => {
+      mockQuestion.mockResolvedValueOnce("y");
+      const answer = await slotMachine.askQuestion("Do you want to play?");
+      expect(answer).toBe("y");
+      expect(mockQuestion).toHaveBeenCalledWith("Do you want to play?");
+      expect(mockClose).toHaveBeenCalled();
+    });
+  });
+
+  describe("#play", () => {
+    it("plays a game", async () => {
+      mockQuestion.mockResolvedValueOnce(10).mockResolvedValueOnce("n");
+      await slotMachine.play();
+      expect(mockQuestion).toHaveBeenNthCalledWith(
+        1,
+        "How much money would you like to start with? "
+      );
+      expect(mockQuestion).toHaveBeenNthCalledWith(
+        2,
+        "Would you like to play again? y/n "
+      );
+      expect(mockClose).toHaveBeenCalled();
+    });
+
+    it("plays a game with free plays", async () => {
+      mockQuestion.mockResolvedValueOnce(10).mockResolvedValueOnce("n");
+      slotMachine.state.freePlays = 1;
+      await slotMachine.play();
+      expect(slotMachine.state.freePlays).toBe(0);
+    });
+
+    it("awards a jackpot", async () => {
+      mockQuestion.mockResolvedValueOnce(10).mockResolvedValueOnce("n");
+      slotMachine.state.characters = ["A", "A", "A", "A", "A"];
+      await slotMachine.play();
+      expect(slotMachine.state.currentGame.winnings).toBe(20);
+    });
+
+    it("awards a double", async () => {
+      mockQuestion.mockResolvedValueOnce(10).mockResolvedValueOnce("n");
+      slotMachine.getSlots = vi.fn().mockReturnValueOnce(["A", "B", "B", "C"]);
+      await slotMachine.play();
+      expect(slotMachine.state.currentGame.winnings).toBe(1);
+    });
+
+    it("awards all different", async () => {
+      mockQuestion.mockReturnValueOnce(10).mockReturnValueOnce("n");
+      slotMachine.getSlots = vi.fn().mockReturnValueOnce(["A", "B", "C", "D"]);
+      await slotMachine.play();
       expect(slotMachine.state.currentGame.winnings).toBe(10);
+    });
+
+    it("awards nothing", async () => {
+      mockQuestion.mockReturnValueOnce(10).mockReturnValueOnce("n");
+      slotMachine.getSlots = vi.fn().mockReturnValueOnce(["A", "B", "C", "B"]);
+      await slotMachine.play();
+      expect(slotMachine.state.currentGame.winnings).toBe(0);
+    });
+
+    it("plays multiple games", async () => {
+      mockQuestion
+        .mockReturnValueOnce(10)
+        .mockReturnValueOnce("y")
+        .mockReturnValueOnce("n");
+
+      slotMachine.getSlots = vi
+        .fn()
+        .mockReturnValueOnce(["A", "B", "C", "B"])
+        .mockReturnValueOnce(["A", "A", "A", "A"]);
+      await slotMachine.play();
+      expect(slotMachine.state.playerCash).toBe(29.6);
     });
   });
 });

@@ -1,0 +1,17 @@
+{
+  "name": "rs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "vitest"
+  },
+  "keywords": [],
+  "author": "Matt Riley",
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^0.25.8"
+  }
+}

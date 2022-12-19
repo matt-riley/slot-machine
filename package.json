@@ -12,6 +12,6 @@
   "author": "Matt Riley",
   "license": "MIT",
   "devDependencies": {
-    "vitest": "^0.25.8"
+    "vitest": "^0.26.0"
   }
 }
